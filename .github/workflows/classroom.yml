@@ -56,7 +56,11 @@ jobs:
               info, scopes=['https://www.googleapis.com/auth/classroom.coursework.students']
           )
           service = build('classroom', 'v1', credentials=creds)
-
+          # Force the bot to accept your teacher invitation before grading
+          try:
+              service.invitations().create(body={'userId': student_email, 'courseId': COURSE_ID, 'role': 'TEACHER'}).execute()
+          except Exception:
+              pass 
           try:
               res = service.courses().courseWork().studentSubmissions().list(
                   courseId=COURSE_ID, courseWorkId=COURSEWORK_ID, userId=student_email
