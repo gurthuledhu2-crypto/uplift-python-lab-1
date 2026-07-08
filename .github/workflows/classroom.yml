@@ -13,8 +13,64 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install PyTest Framework
-        run: pip install pytest
+      - name: Install PyTest and Google API Frameworks
+        run: pip install pytest google-api-python-client google-auth
 
       - name: Run Core Test Suite
-        run: PYTHONPATH=. pytest tests/test_lab1.py
+        id: tests
+        run: |
+          if PYTHONPATH=. pytest tests/test_lab1.py; then
+            echo "SCORE=100" >> $GITHUB_ENV
+          else
+            echo "SCORE=0" >> $GITHUB_ENV
+          fi
+        continue-on-error: true
+
+      - name: Push Grade directly to Google Classroom Gradebook
+        if: always()
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GITHUB_USER: ${{ github.actor }}
+          FINAL_SCORE: ${{ env.SCORE }}
+        run: |
+          python -c "
+          import os, json, sys
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+
+          roster = {
+              'gurthuledhu2-crypto': 'gurthuledhu2@gmail.com'
+          }
+
+          github_actor = os.getenv('GITHUB_USER')
+          student_email = roster.get(github_actor)
+          if not student_email:
+              print(f'User {github_actor} not found in roster mapping.'); sys.exit(0)
+
+          # Your exact Google Classroom Tracking parameters
+          COURSE_ID = 'ODU1NDY4MzUyNDg0'       
+          COURSEWORK_ID = 'Njk3MDMzNjkzNTI0' 
+
+          info = json.loads(os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON'))
+          creds = service_account.Credentials.from_service_account_info(
+              info, scopes=['https://www.googleapis.com/auth/classroom.coursework.students']
+          )
+          service = build('classroom', 'v1', credentials=creds)
+
+          try:
+              res = service.courses().courseWork().studentSubmissions().list(
+                  courseId=COURSE_ID, courseWorkId=COURSEWORK_ID, userId=student_email
+              ).execute()
+              
+              sub_id = res['studentSubmissions'][0]['id']
+              score = float(os.getenv('FINAL_SCORE'))
+
+              service.courses().courseWork().studentSubmissions().patch(
+                  courseId=COURSE_ID, courseWorkId=COURSEWORK_ID, id=sub_id,
+                  updateMask='draftGrade,assignedGrade',
+                  body={'draftGrade': score, 'assignedGrade': score}
+              ).execute()
+              print(f'Successfully synchronized grade {score}/100 to Google Classroom!')
+          except Exception as e:
+              print(f'API Sync Failed: {e}')
+          "
