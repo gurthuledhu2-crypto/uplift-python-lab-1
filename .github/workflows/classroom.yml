@@ -38,29 +38,34 @@ jobs:
           from google.oauth2 import service_account
           from googleapiclient.discovery import build
 
+          # 1. Base Fallback Map (For your main account testing)
           roster = {
               'gurthuledhu2-crypto': 'cheppalenu2@gmail.com'
           }
 
           github_actor = os.getenv('GITHUB_USER')
           student_email = roster.get(github_actor)
+
+          # 2. Dynamic Scan: If a different student writes their email in student.txt, grab it
+          if os.path.exists('student.txt'):
+              with open('student.txt', 'r') as f:
+                  file_email = f.read().strip()
+                  if '@' in file_email:
+                      student_email = file_email
+
           if not student_email:
-              print(f'User {github_actor} not found in roster mapping.'); sys.exit(0)
+              print(f'Error: No student email found for user {github_actor}. Add your email to student.txt'); sys.exit(0)
 
           # Your exact Google Classroom Tracking parameters
           COURSE_ID = 'ODU1NDY4MzUyNDg0'       
-          COURSEWORK_ID = 'Njk3MDMzNjkzNTI0' 
+          COURSEWORK_ID = 'Njk7MDMzNjkzNTI0' 
 
           info = json.loads(os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON'))
           creds = service_account.Credentials.from_service_account_info(
               info, scopes=['https://www.googleapis.com/auth/classroom.coursework.students']
           )
           service = build('classroom', 'v1', credentials=creds)
-          # Force the bot to accept your teacher invitation before grading
-          try:
-              service.invitations().create(body={'userId': student_email, 'courseId': COURSE_ID, 'role': 'TEACHER'}).execute()
-          except Exception:
-              pass 
+
           try:
               res = service.courses().courseWork().studentSubmissions().list(
                   courseId=COURSE_ID, courseWorkId=COURSEWORK_ID, userId=student_email
@@ -74,7 +79,7 @@ jobs:
                   updateMask='draftGrade,assignedGrade',
                   body={'draftGrade': score, 'assignedGrade': score}
               ).execute()
-              print(f'Successfully synchronized grade {score}/100 to Google Classroom!')
+              print(f'Successfully synchronized grade {score}/100 to Google Classroom for {student_email}!')
           except Exception as e:
-              print(f'API Sync Failed: {e}')
+              print(f'API Sync Failed for {student_email}: {e}')
           "
