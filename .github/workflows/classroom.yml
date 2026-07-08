@@ -39,7 +39,7 @@ jobs:
           from googleapiclient.discovery import build
 
           roster = {
-              'gurthuledhu2-crypto': 'gurthuledhu2@gmail.com'
+              'gurthuledhu2-crypto': 'cheppalenu2@gmail.com'
           }
 
           github_actor = os.getenv('GITHUB_USER')
