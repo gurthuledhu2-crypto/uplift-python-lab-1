@@ -2,4 +2,4 @@
 # Instructions: Complete the function below so it returns double the input number x.
 
 def double_number(x):
-    return x * 2  # The student writes the correct answer here!
+    return x * 2  # The student writes the correct logic here!
